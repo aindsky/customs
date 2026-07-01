@@ -11,7 +11,7 @@ jobs:
       with:
         python-version: '3.9'
     - run: pip install pyinstaller selenium
-    - run: pyinstaller --onefile --windowed --name "报关单工具" customs_app.py
+    - run: pyinstaller --onefile --windowed --hidden-import=selenium --hidden-import=tkinter --name "报关单工具" customs_app.py
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/报关单工具.exe
