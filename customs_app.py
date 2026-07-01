@@ -24,22 +24,16 @@ def parse_order_info(text):
         if line.startswith("Order number:"):
             order_info["orderNumber"] = line.replace("Order number:", "").strip()
         elif line.startswith("Name:"):
-            # 提取英文名（空格前的部分）和中文名
             full_name = line.replace("Name:", "").strip()
             order_info["name"] = full_name
-            # 提取英文名（取第一个英文单词+第二个英文单词）
             parts = full_name.split()
-            if len(parts) >= 2:
-                # 找英文名部分
-                en_name = []
-                for p in parts:
-                    if re.match(r'[a-zA-Z]', p):
-                        en_name.append(p)
-                    else:
-                        break
-                order_info["en_name"] = " ".join(en_name) if en_name else full_name
-            else:
-                order_info["en_name"] = full_name
+            en_name = []
+            for p in parts:
+                if re.match(r'[a-zA-Z]', p):
+                    en_name.append(p)
+                else:
+                    break
+            order_info["en_name"] = " ".join(en_name) if en_name else full_name
         elif line.startswith("street:"):
             order_info["street"] = line.replace("street:", "").strip()
         elif line.startswith("City:"):
@@ -53,11 +47,8 @@ def parse_order_info(text):
         elif line.startswith("Phonenumber:"):
             order_info["phone"] = line.replace("Phonenumber:", "").strip()
     
-    # 设置默认值
     if "state" not in order_info:
         order_info["state"] = order_info.get("city", "")
-    if "country" not in order_info:
-        order_info["country"] = ""
     
     required = ["orderNumber", "name", "street", "city", "zip", "phone"]
     missing = [f for f in required if f not in order_info]
@@ -69,18 +60,15 @@ def parse_order_info(text):
 class CustomsApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("报关单填充工具 V3.0 - 自动填写版")
+        self.title("报关单填充工具 V3.1")
         self.geometry("750x750")
         
-        # 标题
         tk.Label(self, text="报关单订单解析 + 自动填写工具", font=("微软雅黑", 14, "bold")).pack(pady=10)
         
-        # 订单输入区
         tk.Label(self, text="📋 订单信息粘贴区", font=("微软雅黑", 11)).pack(pady=3)
         self.text_input = scrolledtext.ScrolledText(self, width=85, height=12)
         self.text_input.pack(padx=10, pady=5)
         
-        # 商品选择
         tk.Label(self, text="📦 选择商品类型", font=("微软雅黑", 11)).pack(pady=3)
         self.goods_var = tk.StringVar(value="1")
         goods_frame = tk.Frame(self)
@@ -89,7 +77,6 @@ class CustomsApp(tk.Tk):
             tk.Radiobutton(goods_frame, text=goods['cn'], variable=self.goods_var,
                           value=str(key), font=("微软雅黑", 9)).pack(side=tk.LEFT, padx=3)
         
-        # 额外信息
         extra_frame1 = tk.Frame(self)
         extra_frame1.pack(pady=5)
         tk.Label(extra_frame1, text="件数:").pack(side=tk.LEFT, padx=2)
@@ -97,17 +84,17 @@ class CustomsApp(tk.Tk):
         self.qty_entry.pack(side=tk.LEFT, padx=2)
         self.qty_entry.insert(0, "1")
         
-        tk.Label(extra_frame1, text="重量(kg):").pack(side=tk.LEFT, padx=2)
+        tk.Label(extra_frame1, text="重量:").pack(side=tk.LEFT, padx=2)
         self.weight_entry = tk.Entry(extra_frame1, width=8)
         self.weight_entry.pack(side=tk.LEFT, padx=2)
         self.weight_entry.insert(0, "1")
         
-        tk.Label(extra_frame1, text="单价($):").pack(side=tk.LEFT, padx=2)
+        tk.Label(extra_frame1, text="单价:").pack(side=tk.LEFT, padx=2)
         self.price_entry = tk.Entry(extra_frame1, width=8)
         self.price_entry.pack(side=tk.LEFT, padx=2)
         self.price_entry.insert(0, "12")
         
-        tk.Label(extra_frame1, text="订单备注:").pack(side=tk.LEFT, padx=2)
+        tk.Label(extra_frame1, text="备注:").pack(side=tk.LEFT, padx=2)
         self.remark_entry = tk.Entry(extra_frame1, width=12)
         self.remark_entry.pack(side=tk.LEFT, padx=2)
         self.remark_entry.insert(0, "DHL")
@@ -118,25 +105,20 @@ class CustomsApp(tk.Tk):
         self.tax_entry = tk.Entry(extra_frame2, width=20)
         self.tax_entry.pack(side=tk.LEFT, padx=2)
         
-        # 按钮区
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=10)
         
         tk.Button(btn_frame, text="🔍 解析订单", font=("",11), bg="#21ba45", fg="white",
                  command=self.parse).pack(side=tk.LEFT, padx=5)
-        
         tk.Button(btn_frame, text="🤖 自动填写网页", font=("",11, "bold"), bg="#e74c3c", fg="white",
                  command=self.auto_fill).pack(side=tk.LEFT, padx=5)
-        
         tk.Button(btn_frame, text="💾 导出CSV", font=("",11), bg="#2185d0", fg="white",
                  command=self.export_csv).pack(side=tk.LEFT, padx=5)
         
-        # 结果显示区
         self.result = scrolledtext.ScrolledText(self, width=85, height=8)
         self.result.pack(padx=10, pady=5)
         
-        # 提示信息
-        tk.Label(self, text="⚠️ 使用自动填写：先点网页第一个输入框，然后点'自动填写网页'按钮", 
+        tk.Label(self, text="⚠️ 先点网页第一个输入框，再点自动填写", 
                 font=("微软雅黑", 9), fg="gray").pack(pady=3)
         
         self.parsed_info = None
@@ -148,28 +130,19 @@ class CustomsApp(tk.Tk):
             goods_key = int(self.goods_var.get())
             g = GOODS_DATA[goods_key]
             
-            qty = self.qty_entry.get()
-            weight = self.weight_entry.get()
-            price = self.price_entry.get()
-            
             res = f"""订单号：{info['orderNumber']}
 收件人：{info['name']}
-英文名：{info.get('en_name', '')}
 地址：{info['street']}
 城市：{info['city']}
 省/州：{info.get('state', '')}
-国家：{info.get('country', '')}
 邮编：{info['zip']}
 电话：{info['phone']}
 
-商品：{g['cn']}
-英文：{g['en']}
-HS码：{g['hs']}
-件数：{qty}  重量：{weight}kg  单价：${price}
+商品：{g['cn']} | {g['en']} | {g['hs']}
 """
             self.result.delete("1.0", tk.END)
             self.result.insert("1.0", res)
-            messagebox.showinfo("成功", "解析完成！可以开始自动填写")
+            messagebox.showinfo("成功", "解析完成！")
         except Exception as e:
             messagebox.showerror("错误", str(e))
     
@@ -189,63 +162,63 @@ HS码：{g['hs']}
         tax = self.tax_entry.get()
         state = info.get('state', info['city'])
         
-        # 准备填写数据 (按Tab顺序)
+        # 修正后的Tab顺序，共34步
         fill_data = [
-            info['orderNumber'],    # 1. 客户订单号
-            info['orderNumber'],    # 2. 国内快递单号
-            None,                   # 3. 服务商单号-跳过
-            "TAB",                  # 4. 渠道-下拉跳过
-            "TAB",                  # 5. 目的地-下拉跳过
-            "TAB",                  # 6. 是否退件-跳过
-            "TAB",                  # 7. 是否带电-跳过
-            "TAB",                  # 8. 是否购买保险-跳过
-            qty,                    # 9. 件数
-            None,                   # 10. 销售平台-跳过
-            weight,                 # 11. 总重量
-            "TAB",                  # 12. 货物类型-下拉跳过
-            remark,                 # 13. 订单备注
-            "TAB",                  # 14. 选择收件人-跳过
-            info.get('en_name', info['name']),  # 15. 收件人名称（英文名）
-            info['street'],         # 16. 地址1
-            None,                   # 17. 收件人邮箱-跳过
-            info['zip'],            # 18. 收件人邮编
-            info['phone'],          # 19. 收件人电话
-            None,                   # 20. 门牌号-跳过
-            info['city'],           # 21. 收件人城市
-            info['phone'],          # 22. 收件人手机
-            tax,                    # 23. 收件人税号
-            state,                  # 24. 收件人省/州
-            None,                   # 25. SKU-跳过
-            None,                   # 26. 配货信息-跳过
-            g['cn'],                # 27. 产品名称(中文)
-            g['en'],                # 28. 海关品名(英文)
-            g['hs'],                # 29. 海关编号(HS)
-            weight,                 # 30. 净重(KG)
-            qty,                    # 31. 产品数量
-            price,                  # 32. 产品单价
-            "TAB",                  # 33. 货币单位-下拉跳过
+            ("fill", info['orderNumber']),   # 1. 客户订单号
+            ("fill", info['orderNumber']),   # 2. 国内快递单号
+            ("tab", None),                   # 3. 服务商单号-跳过
+            ("tab", None),                   # 4. 渠道-下拉跳过
+            ("tab", None),                   # 5. 渠道多跳一次
+            ("tab", None),                   # 6. 目的地-下拉跳过
+            ("tab", None),                   # 7. 是否退件-跳过
+            ("tab", None),                   # 8. 是否带电-跳过
+            ("tab", None),                   # 9. 是否购买保险-跳过
+            ("fill", qty),                   # 10. 件数
+            ("tab", None),                   # 11. 销售平台-跳过
+            ("fill", weight),                # 12. 总重量(KG)
+            ("tab", None),                   # 13. 货物类型-下拉跳过
+            ("fill", remark),                # 14. 订单备注
+            ("tab", None),                   # 15. 选择收件人-跳过
+            ("fill", info.get('en_name', info['name'])),  # 16. 收件人名称
+            ("fill", info['street']),        # 17. 地址1
+            ("tab", None),                   # 18. 收件人邮箱-跳过
+            ("fill", info['zip']),           # 19. 收件人邮编
+            ("fill", info['phone']),         # 20. 收件人电话
+            ("tab", None),                   # 21. 门牌号-跳过
+            ("fill", info['city']),          # 22. 收件人城市
+            ("fill", info['phone']),         # 23. 收件人手机
+            ("fill", tax),                   # 24. 收件人税号
+            ("fill", state),                 # 25. 收件人省/州
+            ("tab", None),                   # 26. SKU-跳过
+            ("tab", None),                   # 27. 配货信息-跳过
+            ("fill", g['cn']),               # 28. 产品名称(中文)
+            ("fill", g['en']),               # 29. 海关品名(英文)
+            ("fill", g['hs']),               # 30. 海关编号(HS)
+            ("fill", weight),                # 31. 净重(KG)
+            ("fill", qty),                   # 32. 产品数量
+            ("fill", price),                 # 33. 产品单价
+            ("tab", None),                   # 34. 货币单位-下拉跳过
         ]
         
-        # 倒计时提醒
         messagebox.showinfo("准备填写", 
-            "请立即点击网页的第一个输入框（客户订单号）！\n\n你有3秒准备时间...")
+            "请立即点击网页第一个输入框！\n\n3秒后开始填写...")
         
         time.sleep(3)
         
-        # 开始自动填写
-        for item in fill_data:
-            if item is None:
-                pyautogui.press('tab')
-            elif item == "TAB":
+        for i, (action, value) in enumerate(fill_data):
+            if action == "tab":
                 pyautogui.press('tab')
             else:
-                pyperclip.copy(str(item))
+                pyautogui.doubleClick()
+                time.sleep(0.05)
+                pyperclip.copy(str(value))
                 pyautogui.hotkey('ctrl', 'v')
+                time.sleep(0.05)
                 pyautogui.press('tab')
             
-            time.sleep(0.15)
+            time.sleep(0.2)
         
-        messagebox.showinfo("完成", "自动填写完成！请检查后手动提交。")
+        messagebox.showinfo("完成", "填写完成！请检查后手动提交。")
     
     def export_csv(self):
         content = self.result.get("1.0", tk.END)
