@@ -1,11 +1,13 @@
-# 报关单订单解析 + 自动填写工具
+# 报关单订单解析 + Selenium自动填写工具
 import tkinter as tk
-from tkinter import scrolledtext, messagebox, filedialog
+from tkinter import scrolledtext, messagebox
 import re
-import csv
 import time
-import pyautogui
-import pyperclip
+import os
+import subprocess
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 
 GOODS_DATA = {
     1: {"cn": "休闲鞋", "en": "Casual shoes", "hs": "6402190090"},
@@ -54,9 +56,9 @@ def parse_order_info(text):
 class CustomsApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("报关单填充工具 V3.2")
-        self.geometry("750x700")
-        tk.Label(self, text="报关单订单解析 + 自动填写工具", font=("微软雅黑", 14, "bold")).pack(pady=10)
+        self.title("报关单填充工具")
+        self.geometry("750x650")
+        tk.Label(self, text="报关单解析 + 自动秒填", font=("微软雅黑", 14, "bold")).pack(pady=10)
         tk.Label(self, text="订单信息粘贴区", font=("微软雅黑", 11)).pack(pady=3)
         self.text_input = scrolledtext.ScrolledText(self, width=85, height=12)
         self.text_input.pack(padx=10, pady=5)
@@ -81,28 +83,21 @@ class CustomsApp(tk.Tk):
         self.price_entry = tk.Entry(extra_frame1, width=8)
         self.price_entry.pack(side=tk.LEFT, padx=2)
         self.price_entry.insert(0, "12")
-        tk.Label(extra_frame1, text="备注:").pack(side=tk.LEFT, padx=2)
-        self.remark_entry = tk.Entry(extra_frame1, width=12)
-        self.remark_entry.pack(side=tk.LEFT, padx=2)
-        self.remark_entry.insert(0, "DHL")
-        extra_frame2 = tk.Frame(self)
-        extra_frame2.pack(pady=5)
-        tk.Label(extra_frame2, text="税号:").pack(side=tk.LEFT, padx=2)
-        self.tax_entry = tk.Entry(extra_frame2, width=20)
+        tk.Label(extra_frame1, text="税号:").pack(side=tk.LEFT, padx=2)
+        self.tax_entry = tk.Entry(extra_frame1, width=20)
         self.tax_entry.pack(side=tk.LEFT, padx=2)
         btn_frame = tk.Frame(self)
         btn_frame.pack(pady=10)
         tk.Button(btn_frame, text="解析订单", font=("",11), bg="#21ba45", fg="white",
                  command=self.parse).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="自动填写网页", font=("",11, "bold"), bg="#e74c3c", fg="white",
+        tk.Button(btn_frame, text="⚡自动填写", font=("",11, "bold"), bg="#e74c3c", fg="white",
                  command=self.auto_fill).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="导出CSV", font=("",11), bg="#2185d0", fg="white",
-                 command=self.export_csv).pack(side=tk.LEFT, padx=5)
-        self.result = scrolledtext.ScrolledText(self, width=85, height=8)
+        self.result = scrolledtext.ScrolledText(self, width=85, height=6)
         self.result.pack(padx=10, pady=5)
-        tk.Label(self, text="先点网页第一个输入框，再点自动填写",
+        tk.Label(self, text="先解析订单，再点自动填写即可秒填网页！",
                 font=("微软雅黑", 9), fg="gray").pack(pady=3)
         self.parsed_info = None
+        self.driver = None
 
     def parse(self):
         try:
@@ -124,6 +119,37 @@ class CustomsApp(tk.Tk):
         except Exception as e:
             messagebox.showerror("错误", str(e))
 
+    def init_driver(self):
+        if self.driver is not None:
+            return True
+        chrome_options = Options()
+        chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+        chrome_paths = [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.expanduser(r"~\AppData\Local\Google\Chrome\Application\chrome.exe"),
+        ]
+        chrome_exe = None
+        for path in chrome_paths:
+            if os.path.exists(path):
+                chrome_exe = path
+                break
+        if chrome_exe is None:
+            messagebox.showerror("错误", "找不到Chrome！")
+            return False
+        try:
+            self.driver = webdriver.Chrome(options=chrome_options)
+            return True
+        except:
+            try:
+                subprocess.Popen([chrome_exe, "--remote-debugging-port=9222"])
+                time.sleep(2)
+                self.driver = webdriver.Chrome(options=chrome_options)
+                return True
+            except Exception as e:
+                messagebox.showerror("错误", f"无法连接Chrome！\n请关闭所有Chrome窗口后重试。")
+                return False
+
     def auto_fill(self):
         if not self.parsed_info:
             messagebox.showwarning("提示", "请先解析订单信息！")
@@ -134,75 +160,49 @@ class CustomsApp(tk.Tk):
         qty = self.qty_entry.get()
         weight = self.weight_entry.get()
         price = self.price_entry.get()
-        remark = self.remark_entry.get()
         tax = self.tax_entry.get()
         state = info.get('state', info['city'])
-        fill_values = [
-            info['orderNumber'],
-            info['orderNumber'],
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            qty,
-            None,
-            weight,
-            None,
-            remark,
-            None,
-            info.get('en_name', info['name']),
-            info['street'],
-            None,
-            info['zip'],
-            info['phone'],
-            None,
-            info['city'],
-            info['phone'],
-            tax,
-            state,
-            None,
-            None,
-            g['cn'],
-            g['en'],
-            g['hs'],
-            weight,
-            qty,
-            price,
-            None,
-        ]
-        messagebox.showinfo("准备", "请点击网页第一个输入框！\n\n3秒后开始...")
-        time.sleep(3)
-        for value in fill_values:
-            if value is None:
-                pyautogui.press('tab')
-            else:
-                pyautogui.hotkey('ctrl', 'a')
-                time.sleep(0.03)
-                pyperclip.copy(str(value))
-                pyautogui.hotkey('ctrl', 'v')
-                time.sleep(0.03)
-                pyautogui.press('tab')
-            time.sleep(0.25)
-        messagebox.showinfo("完成", "填写完成！请检查后手动提交。")
-
-    def export_csv(self):
-        content = self.result.get("1.0", tk.END)
-        if not content.strip():
-            messagebox.showwarning("警告", "没有可导出的内容")
+        if not self.init_driver():
             return
-        file_path = filedialog.asksaveasfilename(defaultextension=".csv",
-                                                  filetypes=[("CSV文件", "*.csv")])
-        if file_path:
-            with open(file_path, 'w', newline='', encoding='utf-8-sig') as f:
-                writer = csv.writer(f)
-                for line in content.split('\n'):
-                    if '：' in line:
-                        key, value = line.split('：', 1)
-                        writer.writerow([key.strip(), value.strip()])
-            messagebox.showinfo("成功", "已导出到: " + file_path)
+        try:
+            windows = self.driver.window_handles
+            if windows:
+                self.driver.switch_to.window(windows[-1])
+            fields = {
+                "refernumb": info['orderNumber'],
+                "domesticno": info['orderNumber'],
+                "goodsnum": qty,
+                "weight": weight,
+                "recname": info.get('en_name', info['name']),
+                "recaddr1": info['street'],
+                "recpost": info['zip'],
+                "rectel": info['phone'],
+                "reccity": info['city'],
+                "recmobile": info['phone'],
+                "recprovince": state,
+                "cont_1": g['cn'],
+                "customs_1": g['en'],
+                "prodno_1": g['hs'],
+                "itemweight_1": weight,
+                "num_1": qty,
+                "sbprice_1": price,
+            }
+            filled = 0
+            errors = []
+            for name, value in fields.items():
+                try:
+                    elem = self.driver.find_element(By.NAME, name)
+                    elem.clear()
+                    elem.send_keys(str(value))
+                    filled += 1
+                except:
+                    errors.append(name)
+            if errors:
+                messagebox.showwarning("部分完成", f"成功: {filled}个\n失败: {len(errors)}个\n\n未找到:\n" + "\n".join(errors))
+            else:
+                messagebox.showinfo("完成", f"全部填写完成！共{filled}个字段")
+        except Exception as e:
+            messagebox.showerror("错误", f"填写失败！\n请确保已打开填写页面。\n\n{str(e)}")
 
 if __name__ == "__main__":
     app = CustomsApp()
