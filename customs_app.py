@@ -1,4 +1,4 @@
-# 报关单订单解析 + Selenium自动填写工具
+# 地址报关单自动填写工具
 import tkinter as tk
 from tkinter import scrolledtext, messagebox
 import re
@@ -56,9 +56,9 @@ def parse_order_info(text):
 class CustomsApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("报关单填充工具")
+        self.title("地址报关单填充工具")
         self.geometry("750x650")
-        tk.Label(self, text="报关单解析 + 自动秒填", font=("微软雅黑", 14, "bold")).pack(pady=10)
+        tk.Label(self, text="地址报关单填充", font=("微软雅黑", 14, "bold")).pack(pady=10)
         tk.Label(self, text="订单信息粘贴区", font=("微软雅黑", 11)).pack(pady=3)
         self.text_input = scrolledtext.ScrolledText(self, width=85, height=12)
         self.text_input.pack(padx=10, pady=5)
@@ -124,6 +124,7 @@ class CustomsApp(tk.Tk):
             return True
         chrome_options = Options()
         chrome_options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
+        chrome_options.add_argument("--no-sandbox")
         chrome_paths = [
             r"C:\Program Files\Google\Chrome\Application\chrome.exe",
             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
@@ -141,14 +142,17 @@ class CustomsApp(tk.Tk):
             self.driver = webdriver.Chrome(options=chrome_options)
             return True
         except:
-            try:
-                subprocess.Popen([chrome_exe, "--remote-debugging-port=9222"])
-                time.sleep(2)
-                self.driver = webdriver.Chrome(options=chrome_options)
-                return True
-            except Exception as e:
-                messagebox.showerror("错误", f"无法连接Chrome！\n请关闭所有Chrome窗口后重试。")
-                return False
+            pass
+        os.system("taskkill /f /im chrome.exe 2>nul")
+        time.sleep(1)
+        try:
+            subprocess.Popen([chrome_exe, "--remote-debugging-port=9222", "--no-first-run"])
+            time.sleep(3)
+            self.driver = webdriver.Chrome(options=chrome_options)
+            return True
+        except Exception as e:
+            messagebox.showerror("错误", f"启动失败！\n\n请手动操作：\n1.关闭所有Chrome\n2.Win+R输入:\nchrome.exe --remote-debugging-port=9222\n3.登录后重试")
+            return False
 
     def auto_fill(self):
         if not self.parsed_info:
@@ -162,8 +166,12 @@ class CustomsApp(tk.Tk):
         price = self.price_entry.get()
         tax = self.tax_entry.get()
         state = info.get('state', info['city'])
+        self.result.insert(tk.END, "\n正在连接Chrome...")
+        self.update()
         if not self.init_driver():
             return
+        self.result.insert(tk.END, "\n正在填写...")
+        self.update()
         try:
             windows = self.driver.window_handles
             if windows:
@@ -198,10 +206,13 @@ class CustomsApp(tk.Tk):
                 except:
                     errors.append(name)
             if errors:
-                messagebox.showwarning("部分完成", f"成功: {filled}个\n失败: {len(errors)}个\n\n未找到:\n" + "\n".join(errors))
+                self.result.insert(tk.END, f"\n成功:{filled} 失败:{len(errors)}")
+                messagebox.showwarning("部分完成", f"成功:{filled}个\n失败:{len(errors)}个\n\n未找到:\n"+"\n".join(errors))
             else:
+                self.result.insert(tk.END, f"\n全部完成！共{filled}个")
                 messagebox.showinfo("完成", f"全部填写完成！共{filled}个字段")
         except Exception as e:
+            self.result.insert(tk.END, f"\n失败:{str(e)}")
             messagebox.showerror("错误", f"填写失败！\n请确保已打开填写页面。\n\n{str(e)}")
 
 if __name__ == "__main__":
