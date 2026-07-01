@@ -15,6 +15,6 @@ jobs:
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/报关单工具.exe
-        tag_name: v3.0
+        tag_name: v3.0.${{ github.run_number }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
