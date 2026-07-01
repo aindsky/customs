@@ -10,11 +10,11 @@ jobs:
     - uses: actions/setup-python@v4
       with:
         python-version: '3.9'
-    - run: pip install pyinstaller
+    - run: pip install pyinstaller pyautogui pyperclip
     - run: pyinstaller --onefile --windowed --name "报关单工具" customs_app.py
     - uses: softprops/action-gh-release@v1
       with:
         files: dist/报关单工具.exe
-        tag_name: v1.0
+        tag_name: v2.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
